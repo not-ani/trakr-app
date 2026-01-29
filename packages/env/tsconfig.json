@@ -1,0 +1,3 @@
+{
+  "extends": "@trakr/config/tsconfig.base.json"
+}
