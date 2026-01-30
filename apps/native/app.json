@@ -1,16 +1,22 @@
 {
   "expo": {
+    "name": "trakr",
+    "slug": "trakr",
+    "version": "1.0.0",
     "scheme": "trakr",
     "userInterfaceStyle": "automatic",
     "orientation": "default",
+    "ios": {
+      "bundleIdentifier": "com.trakrapp.trakr",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.trakrapp.trakr"
+    },
     "web": {
       "bundler": "metro"
     },
-    "name": "trakr",
-    "slug": "trakr",
-    "plugins": [
-      "expo-font"
-    ],
+    "plugins": ["expo-font"],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
@@ -26,8 +32,6 @@
     },
     "updates": {
       "url": "https://u.expo.dev/4aaf2926-7a93-471a-b95f-16ca2e03867d"
-    },
-    "android": {},
-    "ios": {}
+    }
   }
 }

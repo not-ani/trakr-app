@@ -46,7 +46,7 @@ export default function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
 
   const [showEmailForm, setShowEmailForm] = useState(false);
-  const [emailAddress, setEmailAddress] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,8 +74,8 @@ export default function SignInScreen() {
 
   const handleEmailSignIn = useCallback(async () => {
     if (!isLoaded) return;
-    if (!emailAddress.trim() || !password) {
-      setError("Please enter your email and password");
+    if (!identifier.trim() || !password) {
+      setError("Please enter your email/username and password");
       return;
     }
 
@@ -84,7 +84,7 @@ export default function SignInScreen() {
       setError(null);
 
       const signInAttempt = await signIn.create({
-        identifier: emailAddress,
+        identifier: identifier,
         password,
       });
 
@@ -106,7 +106,7 @@ export default function SignInScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoaded, signIn, setActive, emailAddress, password, router]);
+  }, [isLoaded, signIn, setActive, identifier, password, router]);
 
   if (showEmailForm) {
     return (
@@ -170,16 +170,14 @@ export default function SignInScreen() {
 
             <View>
               <Text className="text-sm font-semibold text-default-400 uppercase tracking-wider mb-2">
-                Email
+                Email or Username
               </Text>
               <TextInput
-                value={emailAddress}
-                onChangeText={setEmailAddress}
-                placeholder="Enter your email"
+                value={identifier}
+                onChangeText={setIdentifier}
+                placeholder="Enter your email or username"
                 placeholderTextColor={foreground + "40"}
                 autoCapitalize="none"
-                autoComplete="email"
-                keyboardType="email-address"
                 className="bg-default-50 rounded-2xl px-4 text-base border border-default-100"
                 style={{
                   color: foreground,

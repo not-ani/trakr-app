@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireCurrentUser, areFriends, countNudgesToday } from "./lib/helpers";
+import { Id } from "./_generated/dataModel";
 
 const MAX_NUDGES_PER_DAY = 3;
 
@@ -12,26 +13,13 @@ export const list = query({
 
     const notifications = await ctx.db
       .query("notifications")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", user.userId))
       .order("desc")
       .take(limit);
 
-    // Enrich with sender info
+    // Add habit info and fromUserId (frontend will fetch sender data via Clerk)
     const enriched = await Promise.all(
       notifications.map(async (notification) => {
-        let fromUser = null;
-        if (notification.fromUserId) {
-          const sender = await ctx.db.get(notification.fromUserId);
-          if (sender) {
-            fromUser = {
-              _id: sender._id,
-              displayName: sender.displayName,
-              username: sender.username,
-              avatarUrl: sender.avatarUrl,
-            };
-          }
-        }
-
         let habit = null;
         if (notification.habitId) {
           const h = await ctx.db.get(notification.habitId);
@@ -47,7 +35,7 @@ export const list = query({
 
         return {
           ...notification,
-          fromUser,
+          fromUserId: notification.fromUserId,
           habit,
         };
       })
@@ -65,7 +53,7 @@ export const getUnreadCount = query({
     const unread = await ctx.db
       .query("notifications")
       .withIndex("by_user_unread", (q) =>
-        q.eq("userId", user._id).eq("read", false)
+        q.eq("userId", user.userId).eq("read", false)
       )
       .collect();
 
@@ -79,7 +67,7 @@ export const markRead = mutation({
     const user = await requireCurrentUser(ctx);
     const notification = await ctx.db.get(args.notificationId);
 
-    if (!notification || notification.userId !== user._id) {
+    if (!notification || notification.userId !== user.userId) {
       throw new Error("Notification not found");
     }
 
@@ -96,7 +84,7 @@ export const markAllRead = mutation({
     const unread = await ctx.db
       .query("notifications")
       .withIndex("by_user_unread", (q) =>
-        q.eq("userId", user._id).eq("read", false)
+        q.eq("userId", user.userId).eq("read", false)
       )
       .collect();
 
@@ -110,28 +98,28 @@ export const markAllRead = mutation({
 
 export const sendNudge = mutation({
   args: {
-    toUserId: v.id("users"),
-    habitId: v.optional(v.id("habits")),
+    toUserId: v.string(),
+    habitId: v.optional(v.string()),
     message: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await requireCurrentUser(ctx);
 
     // Verify they are friends
-    const isFriend = await areFriends(ctx, user._id, args.toUserId);
+    const isFriend = await areFriends(ctx, user.userId, args.toUserId);
     if (!isFriend) {
       throw new Error("Not friends");
     }
 
     // Check nudge limit
-    const nudgeCount = await countNudgesToday(ctx, user._id, args.toUserId);
+    const nudgeCount = await countNudgesToday(ctx, user.userId, args.toUserId);
     if (nudgeCount >= MAX_NUDGES_PER_DAY) {
       throw new Error(`You can only send ${MAX_NUDGES_PER_DAY} nudges per day to each friend`);
     }
 
     // If habitId provided, verify it belongs to the target user and is public
     if (args.habitId) {
-      const habit = await ctx.db.get(args.habitId);
+      const habit = await ctx.db.get(args.habitId as Id<"habits">);
       if (!habit || habit.userId !== args.toUserId || !habit.isPublic) {
         throw new Error("Habit not found");
       }
@@ -139,9 +127,9 @@ export const sendNudge = mutation({
 
     const notificationId = await ctx.db.insert("notifications", {
       userId: args.toUserId,
-      fromUserId: user._id,
+      fromUserId: user.userId,
       type: "nudge",
-      habitId: args.habitId,
+      habitId: args.habitId as Id<"habits"> | undefined,
       message: args.message,
       read: false,
     });
@@ -152,22 +140,22 @@ export const sendNudge = mutation({
 
 export const sendCelebration = mutation({
   args: {
-    toUserId: v.id("users"),
-    habitId: v.optional(v.id("habits")),
+    toUserId: v.string(),
+    habitId: v.optional(v.string()),
     message: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await requireCurrentUser(ctx);
 
     // Verify they are friends
-    const isFriend = await areFriends(ctx, user._id, args.toUserId);
+    const isFriend = await areFriends(ctx, user.userId, args.toUserId);
     if (!isFriend) {
       throw new Error("Not friends");
     }
 
     // If habitId provided, verify it belongs to the target user and is public
     if (args.habitId) {
-      const habit = await ctx.db.get(args.habitId);
+      const habit = await ctx.db.get(args.habitId as Id<"habits">);
       if (!habit || habit.userId !== args.toUserId || !habit.isPublic) {
         throw new Error("Habit not found");
       }
@@ -175,9 +163,9 @@ export const sendCelebration = mutation({
 
     const notificationId = await ctx.db.insert("notifications", {
       userId: args.toUserId,
-      fromUserId: user._id,
+      fromUserId: user.userId,
       type: "celebration",
-      habitId: args.habitId,
+      habitId: args.habitId as Id<"habits"> | undefined,
       message: args.message,
       read: false,
     });
@@ -188,7 +176,7 @@ export const sendCelebration = mutation({
 
 export const createStreakMilestone = mutation({
   args: {
-    userId: v.id("users"),
+    userId: v.string(),
     habitId: v.id("habits"),
     streak: v.number(),
   },
@@ -214,7 +202,7 @@ export const deleteNotification = mutation({
     const user = await requireCurrentUser(ctx);
     const notification = await ctx.db.get(args.notificationId);
 
-    if (!notification || notification.userId !== user._id) {
+    if (!notification || notification.userId !== user.userId) {
       throw new Error("Notification not found");
     }
 

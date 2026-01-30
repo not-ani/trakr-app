@@ -1,4 +1,4 @@
-import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
+import { useAuth } from "@clerk/clerk-expo";
 import { Redirect } from "expo-router";
 import { useThemeColor } from "heroui-native";
 import { type ReactNode } from "react";
@@ -21,22 +21,16 @@ function LoadingScreen() {
   );
 }
 
-function UnauthenticatedRedirect() {
-  return <Redirect href="/(auth)/sign-in" />;
-}
-
 export function AuthGuard({ children }: AuthGuardProps) {
-  return (
-    <>
-      <AuthLoading>
-        <LoadingScreen />
-      </AuthLoading>
-      <Unauthenticated>
-        <UnauthenticatedRedirect />
-      </Unauthenticated>
-      <Authenticated>
-        {children}
-      </Authenticated>
-    </>
-  );
+  const { isSignedIn, isLoaded } = useAuth();
+
+  if (!isLoaded) {
+    return <LoadingScreen />;
+  }
+
+  if (!isSignedIn) {
+    return <Redirect href="/(auth)/sign-in" />;
+  }
+
+  return <>{children}</>;
 }

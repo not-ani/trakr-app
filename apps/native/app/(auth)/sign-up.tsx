@@ -1,6 +1,5 @@
-import { useSignUp, useSSO } from "@clerk/clerk-expo";
+import { useSignUp } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
-import * as AuthSession from "expo-auth-session";
 import { Link, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useThemeColor } from "heroui-native";
@@ -42,42 +41,35 @@ export default function SignUpScreen() {
   const foreground = useThemeColor("foreground");
   const background = useThemeColor("background");
 
-  const { startSSOFlow } = useSSO();
   const { signUp, setActive, isLoaded } = useSignUp();
 
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [pendingVerification, setPendingVerification] = useState(false);
   const [emailAddress, setEmailAddress] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleGoogleSignUp = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const { createdSessionId, setActive } = await startSSOFlow({
-        strategy: "oauth_google",
-        redirectUrl: AuthSession.makeRedirectUri(),
-      });
-
-      if (createdSessionId) {
-        await setActive!({ session: createdSessionId });
-        router.replace("/");
-      }
-    } catch (err: any) {
-      console.error("Google sign up error:", JSON.stringify(err, null, 2));
-      setError("Failed to sign up with Google. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [startSSOFlow, router]);
+  const isValidUsername = (username: string): boolean => {
+    return /^[a-zA-Z0-9_]{3,20}$/.test(username);
+  };
 
   const handleEmailSignUp = useCallback(async () => {
     if (!isLoaded) return;
     if (!emailAddress.trim()) {
       setError("Please enter your email");
+      return;
+    }
+    if (!username.trim()) {
+      setError("Please enter a username");
+      return;
+    }
+    if (!isValidUsername(username)) {
+      setError(
+        "Username must be 3-20 characters and can only contain letters, numbers, and underscores",
+      );
       return;
     }
     if (password.length < 8) {
@@ -92,6 +84,7 @@ export default function SignUpScreen() {
       await signUp.create({
         emailAddress,
         password,
+        username: username.toLowerCase(),
       });
 
       // Send email verification code
@@ -107,7 +100,7 @@ export default function SignUpScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoaded, signUp, emailAddress, password]);
+  }, [isLoaded, signUp, emailAddress, password, username]);
 
   const handleVerifyEmail = useCallback(async () => {
     if (!isLoaded) return;
@@ -175,7 +168,6 @@ export default function SignUpScreen() {
     }
   }, [isLoaded, signUp]);
 
-  // Verification code screen
   if (pendingVerification) {
     return (
       <KeyboardAvoidingView
@@ -392,6 +384,26 @@ export default function SignUpScreen() {
 
             <View>
               <Text className="text-sm font-semibold text-default-400 uppercase tracking-wider mb-2">
+                Username
+              </Text>
+              <TextInput
+                value={username}
+                onChangeText={setUsername}
+                placeholder="Choose a username"
+                placeholderTextColor={foreground + "40"}
+                autoCapitalize="none"
+                autoCorrect={false}
+                className="bg-default-50 rounded-2xl px-4 text-base border border-default-100"
+                style={{
+                  color: foreground,
+                  height: 56,
+                  textAlignVertical: "center",
+                }}
+              />
+            </View>
+
+            <View>
+              <Text className="text-sm font-semibold text-default-400 uppercase tracking-wider mb-2">
                 Password
               </Text>
               <TextInput
@@ -529,29 +541,6 @@ export default function SignUpScreen() {
             </Animated.View>
           )}
 
-          <Pressable
-            onPress={handleGoogleSignUp}
-            disabled={isLoading}
-            className="bg-foreground rounded-2xl py-4 px-6 flex-row items-center justify-center mb-3 active:opacity-90"
-            style={{ backgroundColor: foreground, opacity: isLoading ? 0.7 : 1 }}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color={background} />
-            ) : (
-              <>
-                <View className="w-6 h-6 mr-3">
-                  <GoogleIcon />
-                </View>
-                <Text
-                  className="text-lg font-semibold"
-                  style={{ color: background }}
-                >
-                  Continue with Google
-                </Text>
-              </>
-            )}
-          </Pressable>
-
           <View className="flex-row items-center my-4">
             <View className="flex-1 h-px bg-default-200" />
             <Text className="px-4 text-default-400 text-sm">or</Text>
@@ -608,19 +597,12 @@ function BenefitRow({
       <View className="w-8 h-8 rounded-full bg-success/10 items-center justify-center mr-3">
         <Ionicons name={icon} size={18} color="#22c55e" />
       </View>
-      <Text className="text-base text-default-600" style={{ color: foreground }}>
+      <Text
+        className="text-base text-default-600"
+        style={{ color: foreground }}
+      >
         {text}
       </Text>
     </Animated.View>
-  );
-}
-
-function GoogleIcon() {
-  return (
-    <View className="w-6 h-6 items-center justify-center">
-      <View className="w-5 h-5 items-center justify-center">
-        <Text style={{ fontSize: 18 }}>G</Text>
-      </View>
-    </View>
   );
 }

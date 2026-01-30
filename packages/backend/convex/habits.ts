@@ -16,14 +16,14 @@ export const list = query({
     if (args.includeArchived) {
       return ctx.db
         .query("habits")
-        .withIndex("by_user", (q) => q.eq("userId", user._id))
+        .withIndex("by_user", (q) => q.eq("userId", user.userId))
         .collect();
     }
 
     return ctx.db
       .query("habits")
       .withIndex("by_user_active", (q) =>
-        q.eq("userId", user._id).eq("isArchived", false),
+        q.eq("userId", user.userId).eq("isArchived", false),
       )
       .collect();
   },
@@ -35,7 +35,7 @@ export const get = query({
     const user = await requireCurrentUser(ctx);
     const habit = await ctx.db.get(args.id);
 
-    if (!habit || habit.userId !== user._id) {
+    if (!habit || habit.userId !== user.userId) {
       return null;
     }
 
@@ -64,7 +64,7 @@ export const create = mutation({
     }
 
     const habitId = await ctx.db.insert("habits", {
-      userId: user._id,
+      userId: user.userId,
       name: args.name,
       description: args.description,
       icon: args.icon,
@@ -94,7 +94,7 @@ export const update = mutation({
     const user = await requireCurrentUser(ctx);
     const habit = await ctx.db.get(args.id);
 
-    if (!habit || habit.userId !== user._id) {
+    if (!habit || habit.userId !== user.userId) {
       throw new Error("Habit not found");
     }
 
@@ -135,7 +135,7 @@ export const archive = mutation({
     const user = await requireCurrentUser(ctx);
     const habit = await ctx.db.get(args.id);
 
-    if (!habit || habit.userId !== user._id) {
+    if (!habit || habit.userId !== user.userId) {
       throw new Error("Habit not found");
     }
 
@@ -150,7 +150,7 @@ export const unarchive = mutation({
     const user = await requireCurrentUser(ctx);
     const habit = await ctx.db.get(args.id);
 
-    if (!habit || habit.userId !== user._id) {
+    if (!habit || habit.userId !== user.userId) {
       throw new Error("Habit not found");
     }
 
@@ -169,7 +169,7 @@ export const toggleCompletion = mutation({
     const user = await requireCurrentUser(ctx);
     const habit = await ctx.db.get(args.habitId);
 
-    if (!habit || habit.userId !== user._id) {
+    if (!habit || habit.userId !== user.userId) {
       throw new Error("Habit not found");
     }
 
@@ -196,7 +196,7 @@ export const toggleCompletion = mutation({
     // Create new log
     const logId = await ctx.db.insert("habitLogs", {
       habitId: args.habitId,
-      userId: user._id,
+      userId: user.userId,
       date,
       completed: true,
       completedAt: Date.now(),
@@ -218,7 +218,7 @@ export const getTodaysHabits = query({
     const habits = await ctx.db
       .query("habits")
       .withIndex("by_user_active", (q) =>
-        q.eq("userId", user._id).eq("isArchived", false),
+        q.eq("userId", user.userId).eq("isArchived", false),
       )
       .collect();
 
@@ -260,7 +260,7 @@ export const getCompletionsForRange = query({
     const user = await requireCurrentUser(ctx);
     const habit = await ctx.db.get(args.habitId);
 
-    if (!habit || habit.userId !== user._id) {
+    if (!habit || habit.userId !== user.userId) {
       throw new Error("Habit not found");
     }
 
@@ -291,7 +291,7 @@ export const getStreak = query({
     const user = await requireCurrentUser(ctx);
     const habit = await ctx.db.get(args.habitId);
 
-    if (!habit || habit.userId !== user._id) {
+    if (!habit || habit.userId !== user.userId) {
       throw new Error("Habit not found");
     }
 
@@ -317,7 +317,7 @@ export const getWeekCompletions = query({
 
     if (args.habitId) {
       const habit = await ctx.db.get(args.habitId);
-      if (!habit || habit.userId !== user._id) {
+      if (!habit || habit.userId !== user.userId) {
         throw new Error("Habit not found");
       }
 
@@ -344,7 +344,7 @@ export const getWeekCompletions = query({
     // Get all completions for all habits
     const logs = await ctx.db
       .query("habitLogs")
-      .withIndex("by_user_date", (q) => q.eq("userId", user._id))
+      .withIndex("by_user_date", (q) => q.eq("userId", user.userId))
       .filter((q) =>
         q.and(
           q.gte(q.field("date"), dates[0]),

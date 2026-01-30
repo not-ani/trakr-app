@@ -8,7 +8,7 @@ import Animated, { FadeIn, FadeInDown, FadeInUp } from "react-native-reanimated"
 import { AuthGuard } from "@/components/AuthGuard";
 import { Container } from "@/components/container";
 import { FriendCard, FriendRequestCard } from "@/components/friends";
-import { useFriends, useNotifications } from "@/hooks";
+import { useFriends, useNotifications, useFriendProfiles } from "@/hooks";
 import { Id } from "@trakr/backend/convex/_generated/dataModel";
 
 type Tab = "friends" | "requests";
@@ -34,14 +34,21 @@ function FriendsListContent() {
     friendStreaks,
     acceptRequest,
     rejectRequest,
-    isLoading,
+    isLoading: friendsLoading,
   } = useFriends();
   const { sendNudge, sendCelebration } = useNotifications();
 
-  const handleAccept = async (friendshipId: Id<"friendships">) => {
+  // Get all friend IDs for profile fetching
+  const allFriendIds = [
+    ...(friends || []),
+    ...(pendingRequests?.map((r) => r?.requesterId).filter(Boolean) || []),
+  ];
+  const { profiles, isLoading: profilesLoading } = useFriendProfiles(allFriendIds);
+
+  const handleAccept = async (friendshipId: string) => {
     setLoadingId(friendshipId);
     try {
-      await acceptRequest({ friendshipId });
+      await acceptRequest({ friendshipId: friendshipId as Id<"friendships"> });
     } catch (error) {
       Alert.alert("Error", "Failed to accept request");
     } finally {
@@ -49,10 +56,10 @@ function FriendsListContent() {
     }
   };
 
-  const handleReject = async (friendshipId: Id<"friendships">) => {
+  const handleReject = async (friendshipId: string) => {
     setLoadingId(friendshipId);
     try {
-      await rejectRequest({ friendshipId });
+      await rejectRequest({ friendshipId: friendshipId as Id<"friendships"> });
     } catch (error) {
       Alert.alert("Error", "Failed to reject request");
     } finally {
@@ -60,7 +67,7 @@ function FriendsListContent() {
     }
   };
 
-  const handleNudge = async (userId: Id<"users">) => {
+  const handleNudge = async (userId: string) => {
     try {
       await sendNudge({ toUserId: userId });
       Alert.alert("Sent!", "Nudge sent successfully");
@@ -69,7 +76,7 @@ function FriendsListContent() {
     }
   };
 
-  const handleCelebrate = async (userId: Id<"users">) => {
+  const handleCelebrate = async (userId: string) => {
     try {
       await sendCelebration({ toUserId: userId });
       Alert.alert("Sent!", "Celebration sent!");
@@ -77,6 +84,8 @@ function FriendsListContent() {
       Alert.alert("Error", error.message || "Failed to send celebration");
     }
   };
+
+  const isLoading = friendsLoading || profilesLoading;
 
   if (isLoading) {
     return (
@@ -91,14 +100,19 @@ function FriendsListContent() {
   const requestCount = pendingRequests?.length ?? 0;
   const filteredRequests = pendingRequests?.filter((r): r is NonNullable<typeof r> => r !== null) ?? [];
 
-  // Merge friend data with streak data
+  // Merge friend data with streak data and profiles
+  // friends is now an array of user ID strings
   const friendsWithStreaks = friends
     ?.filter((f): f is NonNullable<typeof f> => f !== null)
-    .map((friend) => {
-      const streakData = friendStreaks?.find((fs) => fs?.friend._id === friend._id);
+    .map((friendId) => {
+      const streakData = friendStreaks?.find((fs) => fs?.friendId === friendId);
+      const profile = profiles[friendId];
       return {
-        ...friend,
+        userId: friendId,
         maxStreak: streakData?.maxStreak ?? 0,
+        displayName: profile?.displayName || `User ${friendId.slice(0, 8)}...`,
+        username: profile?.username,
+        avatarUrl: profile?.imageUrl,
       };
     }) ?? [];
 
@@ -166,7 +180,7 @@ function FriendsListContent() {
               </Text>
               {friendsWithStreaks.map((friend, index) => (
                 <Animated.View
-                  key={friend._id}
+                  key={friend.userId}
                   entering={FadeInUp.delay(350 + index * 50).duration(400)}
                 >
                   <FriendCard
@@ -174,9 +188,9 @@ function FriendsListContent() {
                     username={friend.username}
                     avatarUrl={friend.avatarUrl}
                     maxStreak={friend.maxStreak}
-                    onPress={() => router.push(`/friends/${friend._id}`)}
-                    onNudge={() => handleNudge(friend._id)}
-                    onCelebrate={() => handleCelebrate(friend._id)}
+                    onPress={() => router.push(`/friends/${friend.userId}`)}
+                    onNudge={() => handleNudge(friend.userId)}
+                    onCelebrate={() => handleCelebrate(friend.userId)}
                   />
                 </Animated.View>
               ))}
@@ -193,21 +207,24 @@ function FriendsListContent() {
             <Text className="text-sm font-semibold text-default-400 uppercase tracking-wider mb-4">
               Pending Requests
             </Text>
-            {filteredRequests.map((request, index) => (
-              <Animated.View
-                key={request.friendshipId}
-                entering={FadeInUp.delay(350 + index * 50).duration(400)}
-              >
-                <FriendRequestCard
-                  displayName={request.user.displayName}
-                  username={request.user.username}
-                  avatarUrl={request.user.avatarUrl}
-                  onAccept={() => handleAccept(request.friendshipId)}
-                  onReject={() => handleReject(request.friendshipId)}
-                  isLoading={loadingId === request.friendshipId}
-                />
-              </Animated.View>
-            ))}
+            {filteredRequests.map((request, index) => {
+              const requesterProfile = profiles[request.requesterId];
+              return (
+                <Animated.View
+                  key={request.friendshipId}
+                  entering={FadeInUp.delay(350 + index * 50).duration(400)}
+                >
+                  <FriendRequestCard
+                    displayName={requesterProfile?.displayName || `User ${request.requesterId.slice(0, 8)}...`}
+                    username={requesterProfile?.username}
+                    avatarUrl={requesterProfile?.imageUrl}
+                    onAccept={() => handleAccept(request.friendshipId)}
+                    onReject={() => handleReject(request.friendshipId)}
+                    isLoading={loadingId === request.friendshipId}
+                  />
+                </Animated.View>
+              );
+            })}
           </Animated.View>
         ) : (
           <Container.EmptyState

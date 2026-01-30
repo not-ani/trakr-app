@@ -1,32 +1,26 @@
 import { useUser } from "@clerk/clerk-expo";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { useEffect } from "react";
-import { api } from "@trakr/backend/convex/_generated/api";
 
-// Note: This hook can be used anywhere as it handles auth state internally
+// This hook returns user data directly from Clerk
+// The users table has been removed - all user data is now in Clerk
 
 export function useCurrentUser() {
   const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
-  const { isAuthenticated, isLoading: convexLoading } = useConvexAuth();
 
-  // Only query Convex if Convex auth is ready
-  const convexUser = useQuery(
-    api.users.me,
-    isAuthenticated ? undefined : "skip"
-  );
-  const getOrCreate = useMutation(api.users.getOrCreate);
-
-  useEffect(() => {
-    if (clerkLoaded && isAuthenticated && clerkUser && convexUser === null) {
-      // User is signed in but doesn't exist in Convex yet
-      getOrCreate();
-    }
-  }, [clerkLoaded, isAuthenticated, clerkUser, convexUser, getOrCreate]);
+  // Map Clerk user to the expected format
+  const user = clerkUser ? {
+    userId: clerkUser.id,
+    email: clerkUser.emailAddresses[0]?.emailAddress,
+    username: clerkUser.username,
+    displayName: clerkUser.firstName && clerkUser.lastName 
+      ? `${clerkUser.firstName} ${clerkUser.lastName}`
+      : clerkUser.firstName || clerkUser.lastName || clerkUser.username,
+    avatarUrl: clerkUser.imageUrl,
+  } : null;
 
   return {
-    user: convexUser,
+    user,
     clerkUser,
-    isLoading: !clerkLoaded || convexLoading || (isAuthenticated && convexUser === undefined),
-    isAuthenticated,
+    isLoading: !clerkLoaded,
+    isAuthenticated: !!clerkUser,
   };
 }

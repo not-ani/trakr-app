@@ -6,8 +6,7 @@ import Animated, { FadeIn, FadeInDown, FadeInUp } from "react-native-reanimated"
 
 import { Container } from "@/components/container";
 import { HABIT_COLORS, HABIT_ICONS } from "@/components/habits";
-import { useFriendProgress, useFriends, useNotifications } from "@/hooks";
-import { Id } from "@trakr/backend/convex/_generated/dataModel";
+import { useFriendProgress, useFriends, useNotifications, useUserProfile } from "@/hooks";
 
 export default function FriendDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -15,14 +14,15 @@ export default function FriendDetailScreen() {
   const foreground = useThemeColor("foreground");
   const background = useThemeColor("background");
 
-  const { progress, isLoading } = useFriendProgress(id as Id<"users"> | undefined);
+  const { progress, isLoading } = useFriendProgress(id);
   const { removeFriend } = useFriends();
   const { sendNudge, sendCelebration } = useNotifications();
+  const { profile, isLoading: profileLoading } = useUserProfile(id);
 
-  const handleNudge = async (habitId?: Id<"habits">) => {
+  const handleNudge = async (habitId?: string) => {
     try {
       await sendNudge({
-        toUserId: id as Id<"users">,
+        toUserId: id,
         habitId,
       });
       Alert.alert("Sent!", "Nudge sent successfully");
@@ -31,10 +31,10 @@ export default function FriendDetailScreen() {
     }
   };
 
-  const handleCelebrate = async (habitId?: Id<"habits">) => {
+  const handleCelebrate = async (habitId?: string) => {
     try {
       await sendCelebration({
-        toUserId: id as Id<"users">,
+        toUserId: id,
         habitId,
       });
       Alert.alert("Sent!", "Celebration sent!");
@@ -54,7 +54,7 @@ export default function FriendDetailScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              await removeFriend({ friendId: id as Id<"users"> });
+              await removeFriend({ friendId: id });
               router.back();
             } catch (error) {
               Alert.alert("Error", "Failed to remove friend");
@@ -65,7 +65,7 @@ export default function FriendDetailScreen() {
     );
   };
 
-  if (isLoading || !progress) {
+  if (isLoading || profileLoading || !progress || !profile) {
     return (
       <Container>
         <Container.Loading>
@@ -75,7 +75,7 @@ export default function FriendDetailScreen() {
     );
   }
 
-  const { friend, todaysHabits, allPublicHabits } = progress;
+  const { todaysHabits, allPublicHabits } = progress;
   const completedToday = todaysHabits.filter((h) => h.completedToday).length;
   const totalToday = todaysHabits.length;
   const progressPercentage = totalToday > 0 ? (completedToday / totalToday) * 100 : 0;
@@ -89,9 +89,9 @@ export default function FriendDetailScreen() {
           className="items-center pt-6 pb-6"
         >
           <View className="w-24 h-24 rounded-full bg-default-100 items-center justify-center mb-4 overflow-hidden border-4 border-background shadow-lg">
-            {friend.avatarUrl ? (
+            {profile.imageUrl ? (
               <Image
-                source={{ uri: friend.avatarUrl }}
+                source={{ uri: profile.imageUrl }}
                 className="w-full h-full"
                 resizeMode="cover"
               />
@@ -103,10 +103,10 @@ export default function FriendDetailScreen() {
             className="text-2xl font-bold tracking-tight mb-1"
             style={{ color: foreground }}
           >
-            {friend.displayName || friend.username}
+            {profile.displayName || profile.username}
           </Text>
-          {friend.username && friend.displayName && (
-            <Text className="text-base text-default-500">@{friend.username}</Text>
+          {profile.username && profile.displayName && (
+            <Text className="text-base text-default-500">@{profile.username}</Text>
           )}
         </Animated.View>
 

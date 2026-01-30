@@ -8,7 +8,6 @@ import Animated, { FadeIn, FadeInDown, FadeInUp } from "react-native-reanimated"
 import { Container } from "@/components/container";
 import { UserSearchResultCard } from "@/components/friends";
 import { useSearchUsers, useFriends } from "@/hooks";
-import { Id } from "@trakr/backend/convex/_generated/dataModel";
 
 export default function AddFriendScreen() {
   const router = useRouter();
@@ -17,12 +16,12 @@ export default function AddFriendScreen() {
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
   const { results, isLoading } = useSearchUsers(query);
-  const { sendRequest, acceptRequest } = useFriends();
+  const { sendRequestByClerkId } = useFriends();
 
-  const handleSendRequest = async (userId: Id<"users">) => {
+  const handleSendRequest = async (userId: string) => {
     setLoadingId(userId);
     try {
-      await sendRequest({ addresseeId: userId });
+      await sendRequestByClerkId({ clerkUserId: userId });
       Alert.alert("Success", "Friend request sent!");
     } catch (error: any) {
       Alert.alert("Error", error.message || "Failed to send request");
@@ -31,7 +30,7 @@ export default function AddFriendScreen() {
     }
   };
 
-  const handleAccept = async (userId: Id<"users">) => {
+  const handleAccept = async (userId: string) => {
     Alert.alert("Info", "Accept this request from the Friends tab");
   };
 
@@ -93,22 +92,27 @@ export default function AddFriendScreen() {
             <Text className="text-sm font-semibold text-default-400 uppercase tracking-wider mb-4">
               {results.length} Result{results.length !== 1 ? "s" : ""}
             </Text>
-            {results.map((user, index) => (
-              <Animated.View
-                key={user._id}
-                entering={FadeInUp.delay(350 + index * 50).duration(400)}
-              >
-                <UserSearchResultCard
-                  displayName={user.displayName}
-                  username={user.username}
-                  avatarUrl={user.avatarUrl}
-                  status={user.status}
-                  onSendRequest={() => handleSendRequest(user._id)}
-                  onAccept={() => handleAccept(user._id)}
-                  isLoading={loadingId === user._id}
-                />
-              </Animated.View>
-            ))}
+            {results.map((user, index) => {
+              const displayName = user.firstName && user.lastName
+                ? `${user.firstName} ${user.lastName}`
+                : user.firstName || user.lastName || user.username || "Unknown";
+              
+              return (
+                <Animated.View
+                  key={user.id}
+                  entering={FadeInUp.delay(350 + index * 50).duration(400)}
+                >
+                  <UserSearchResultCard
+                    displayName={displayName}
+                    username={user.username}
+                    avatarUrl={user.imageUrl}
+                    status="none"
+                    onSendRequest={() => handleSendRequest(user.id)}
+                    isLoading={loadingId === user.id}
+                  />
+                </Animated.View>
+              );
+            })}
           </Animated.View>
         ) : (
           <Container.EmptyState

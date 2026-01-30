@@ -1,11 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@clerk/clerk-expo";
-import { useMutation } from "convex/react";
-import { useState } from "react";
-import { View, Text, Image, TextInput, Alert, ActivityIndicator, Pressable } from "react-native";
-import { Button, Card, useThemeColor } from "heroui-native";
-import Animated, { FadeIn, FadeInDown, FadeInUp } from "react-native-reanimated";
-import { api } from "@trakr/backend/convex/_generated/api";
+import { View, Text, Image, Alert, ActivityIndicator, Pressable } from "react-native";
+import { Card, useThemeColor } from "heroui-native";
+import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 
 import { AuthGuard } from "@/components/AuthGuard";
 import { Container } from "@/components/container";
@@ -26,27 +23,6 @@ function ProfileContent() {
   const background = useThemeColor("background");
   const { user, clerkUser, isLoading } = useCurrentUser();
   const { habits } = useHabits();
-
-  const setUsername = useMutation(api.users.setUsername);
-
-  const [isEditingUsername, setIsEditingUsername] = useState(false);
-  const [newUsername, setNewUsername] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSetUsername = async () => {
-    if (!newUsername.trim()) return;
-
-    setIsSubmitting(true);
-    try {
-      await setUsername({ username: newUsername.trim() });
-      setIsEditingUsername(false);
-      setNewUsername("");
-    } catch (error: any) {
-      Alert.alert("Error", error.message || "Failed to set username");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const handleSignOut = () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
@@ -82,9 +58,9 @@ function ProfileContent() {
         >
           <View className="relative mb-4">
             <View className="w-28 h-28 rounded-full bg-default-100 items-center justify-center overflow-hidden border-4 border-background shadow-lg">
-              {user?.avatarUrl ? (
+              {user?.avatarUrl || clerkUser?.imageUrl ? (
                 <Image
-                  source={{ uri: user.avatarUrl }}
+                  source={{ uri: user?.avatarUrl || clerkUser?.imageUrl }}
                   className="w-full h-full"
                   resizeMode="cover"
                 />
@@ -104,76 +80,10 @@ function ProfileContent() {
             {user?.displayName || clerkUser?.firstName || "User"}
           </Text>
           
-          {user?.username ? (
+          {user?.username && (
             <Text className="text-base text-default-500">@{user.username}</Text>
-          ) : (
-            <Pressable
-              onPress={() => setIsEditingUsername(true)}
-              className="bg-default-100 rounded-full px-4 py-2 mt-1"
-            >
-              <Text className="text-sm text-default-500">+ Add username</Text>
-            </Pressable>
           )}
         </Animated.View>
-
-        {/* Username Editor */}
-        {isEditingUsername && (
-          <Animated.View
-            entering={FadeIn.duration(300)}
-            className="mx-6 mb-6"
-          >
-            <Card variant="secondary" className="p-5 border border-default-100">
-              <Text
-                className="text-base font-semibold mb-3"
-                style={{ color: foreground }}
-              >
-                Choose a username
-              </Text>
-              <TextInput
-                value={newUsername}
-                onChangeText={setNewUsername}
-                placeholder="username"
-                placeholderTextColor={foreground + "40"}
-                className="bg-default-100 rounded-xl px-4 py-3.5 text-base mb-2"
-                style={{ color: foreground }}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <Text className="text-xs text-default-400 mb-4">
-                3-20 characters, letters, numbers, and underscores only
-              </Text>
-              <View className="flex-row gap-3">
-                <Pressable
-                  onPress={() => {
-                    setIsEditingUsername(false);
-                    setNewUsername("");
-                  }}
-                  className="flex-1 py-3 rounded-xl bg-default-100"
-                >
-                  <Text
-                    className="text-center font-semibold"
-                    style={{ color: foreground }}
-                  >
-                    Cancel
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={handleSetUsername}
-                  disabled={!newUsername.trim() || isSubmitting}
-                  className="flex-1 py-3 rounded-xl bg-foreground"
-                  style={{
-                    backgroundColor: foreground,
-                    opacity: !newUsername.trim() || isSubmitting ? 0.5 : 1,
-                  }}
-                >
-                  <Text className="text-center font-semibold" style={{ color: background }}>
-                    {isSubmitting ? "Saving..." : "Save"}
-                  </Text>
-                </Pressable>
-              </View>
-            </Card>
-          </Animated.View>
-        )}
 
         {/* Stats Cards */}
         <Animated.View

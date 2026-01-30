@@ -2,26 +2,27 @@ import { QueryCtx, MutationCtx } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
 import { ConvexError } from "convex/values";
 
+// User identity now comes directly from Clerk via ctx.auth.getUserIdentity()
+// We no longer maintain a users table - all user data is in Clerk
+
 export async function getCurrentUser(ctx: QueryCtx | MutationCtx) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) return null;
 
-  const user = await ctx.db
-    .query("users")
-    .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-    .unique();
-
-  if (!user) return null;
+  // Return the Clerk identity which contains userId (subject), email, name, etc.
   return identity;
 }
 
 export async function requireCurrentUser(ctx: QueryCtx | MutationCtx) {
-  const user = await getCurrentUser(ctx);
-  if (!user) {
+  const identity = await getCurrentUser(ctx);
+  if (!identity) {
     throw new ConvexError("Not authenticated");
   }
   return {
-    _id: user.subject,
+    userId: identity.subject, // Clerk user ID
+    email: identity.email,
+    name: identity.name,
+    pictureUrl: identity.pictureUrl,
   };
 }
 
@@ -97,8 +98,8 @@ export async function calculateStreak(
 
 export async function areFriends(
   ctx: QueryCtx,
-  userId1: Id<"users">,
-  userId2: Id<"users">,
+  userId1: string,
+  userId2: string,
 ): Promise<boolean> {
   // Check both directions
   const friendship1 = await ctx.db
@@ -127,8 +128,8 @@ export function isValidUsername(username: string): boolean {
 
 export async function countNudgesToday(
   ctx: QueryCtx,
-  fromUserId: Id<"users">,
-  toUserId: Id<"users">,
+  fromUserId: string,
+  toUserId: string,
 ): Promise<number> {
   const today = getDateString();
   const startOfDay = parseDateString(today).getTime();

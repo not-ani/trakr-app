@@ -1,4 +1,4 @@
 export { useCurrentUser } from "./useCurrentUser";
 export { useHabits, useHabit, useHabitCompletions } from "./useHabits";
-export { useFriends, useSearchUsers, useFriendProgress, useFriendActivity } from "./useFriends";
+export { useFriends, useFriendProgress, useFriendActivity, useSearchUsers, useFriendProfiles, useUserProfile } from "./useFriends";
 export { useNotifications } from "./useNotifications";

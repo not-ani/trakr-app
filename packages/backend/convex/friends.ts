@@ -1,28 +1,21 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { requireCurrentUser, areFriends } from "./lib/helpers";
-import { Doc, Id } from "./_generated/dataModel";
+import { requireCurrentUser } from "./lib/helpers";
 
 export const sendRequest = mutation({
-  args: { addresseeId: v.id("users") },
+  args: { addresseeId: v.string() },
   handler: async (ctx, args) => {
     const user = await requireCurrentUser(ctx);
 
-    if (args.addresseeId === user._id) {
+    if (args.addresseeId === user.userId) {
       throw new Error("Cannot send friend request to yourself");
-    }
-
-    // Check if addressee exists
-    const addressee = await ctx.db.get(args.addresseeId);
-    if (!addressee) {
-      throw new Error("User not found");
     }
 
     // Check if friendship already exists in either direction
     const existing1 = await ctx.db
       .query("friendships")
       .withIndex("by_pair", (q) =>
-        q.eq("requesterId", user._id).eq("addresseeId", args.addresseeId)
+        q.eq("requesterId", user.userId).eq("addresseeId", args.addresseeId)
       )
       .unique();
 
@@ -39,7 +32,7 @@ export const sendRequest = mutation({
       // Create notification
       await ctx.db.insert("notifications", {
         userId: args.addresseeId,
-        fromUserId: user._id,
+        fromUserId: user.userId,
         type: "friend_request",
         read: false,
       });
@@ -50,7 +43,7 @@ export const sendRequest = mutation({
     const existing2 = await ctx.db
       .query("friendships")
       .withIndex("by_pair", (q) =>
-        q.eq("requesterId", args.addresseeId).eq("addresseeId", user._id)
+        q.eq("requesterId", args.addresseeId).eq("addresseeId", user.userId)
       )
       .unique();
 
@@ -62,7 +55,7 @@ export const sendRequest = mutation({
         // Notify them
         await ctx.db.insert("notifications", {
           userId: args.addresseeId,
-          fromUserId: user._id,
+          fromUserId: user.userId,
           type: "friend_accepted",
           read: false,
         });
@@ -76,7 +69,7 @@ export const sendRequest = mutation({
 
     // Create new friendship request
     const friendshipId = await ctx.db.insert("friendships", {
-      requesterId: user._id,
+      requesterId: user.userId,
       addresseeId: args.addresseeId,
       status: "pending",
     });
@@ -84,7 +77,7 @@ export const sendRequest = mutation({
     // Create notification
     await ctx.db.insert("notifications", {
       userId: args.addresseeId,
-      fromUserId: user._id,
+      fromUserId: user.userId,
       type: "friend_request",
       read: false,
     });
@@ -103,7 +96,7 @@ export const acceptRequest = mutation({
       throw new Error("Friend request not found");
     }
 
-    if (friendship.addresseeId !== user._id) {
+    if (friendship.addresseeId !== user.userId) {
       throw new Error("Not authorized");
     }
 
@@ -116,7 +109,7 @@ export const acceptRequest = mutation({
     // Notify requester
     await ctx.db.insert("notifications", {
       userId: friendship.requesterId,
-      fromUserId: user._id,
+      fromUserId: user.userId,
       type: "friend_accepted",
       read: false,
     });
@@ -135,7 +128,7 @@ export const rejectRequest = mutation({
       throw new Error("Friend request not found");
     }
 
-    if (friendship.addresseeId !== user._id) {
+    if (friendship.addresseeId !== user.userId) {
       throw new Error("Not authorized");
     }
 
@@ -149,7 +142,7 @@ export const rejectRequest = mutation({
 });
 
 export const removeFriend = mutation({
-  args: { friendId: v.id("users") },
+  args: { friendId: v.string() },
   handler: async (ctx, args) => {
     const user = await requireCurrentUser(ctx);
 
@@ -157,7 +150,7 @@ export const removeFriend = mutation({
     const friendship1 = await ctx.db
       .query("friendships")
       .withIndex("by_pair", (q) =>
-        q.eq("requesterId", user._id).eq("addresseeId", args.friendId)
+        q.eq("requesterId", user.userId).eq("addresseeId", args.friendId)
       )
       .unique();
 
@@ -169,7 +162,7 @@ export const removeFriend = mutation({
     const friendship2 = await ctx.db
       .query("friendships")
       .withIndex("by_pair", (q) =>
-        q.eq("requesterId", args.friendId).eq("addresseeId", user._id)
+        q.eq("requesterId", args.friendId).eq("addresseeId", user.userId)
       )
       .unique();
 
@@ -190,7 +183,7 @@ export const listFriends = query({
     // Get friendships where user is requester
     const asRequester = await ctx.db
       .query("friendships")
-      .withIndex("by_requester", (q) => q.eq("requesterId", user._id))
+      .withIndex("by_requester", (q) => q.eq("requesterId", user.userId))
       .filter((q) => q.eq(q.field("status"), "accepted"))
       .collect();
 
@@ -198,30 +191,17 @@ export const listFriends = query({
     const asAddressee = await ctx.db
       .query("friendships")
       .withIndex("by_addressee_status", (q) =>
-        q.eq("addresseeId", user._id).eq("status", "accepted")
+        q.eq("addresseeId", user.userId).eq("status", "accepted")
       )
       .collect();
 
-    // Get friend user data
+    // Return just the Clerk user IDs - frontend will use Clerk hooks to get user data
     const friendIds = [
       ...asRequester.map((f) => f.addresseeId),
       ...asAddressee.map((f) => f.requesterId),
     ];
 
-    const friends = await Promise.all(
-      friendIds.map(async (id) => {
-        const friend = await ctx.db.get(id);
-        if (!friend) return null;
-        return {
-          _id: friend._id,
-          username: friend.username,
-          displayName: friend.displayName,
-          avatarUrl: friend.avatarUrl,
-        };
-      })
-    );
-
-    return friends.filter(Boolean);
+    return friendIds;
   },
 });
 
@@ -234,126 +214,37 @@ export const listPendingRequests = query({
     const pending = await ctx.db
       .query("friendships")
       .withIndex("by_addressee_status", (q) =>
-        q.eq("addresseeId", user._id).eq("status", "pending")
+        q.eq("addresseeId", user.userId).eq("status", "pending")
       )
       .collect();
 
-    // Get requester data
-    const requests = await Promise.all(
-      pending.map(async (friendship) => {
-        const requester = await ctx.db.get(friendship.requesterId);
-        if (!requester) return null;
-        return {
-          friendshipId: friendship._id,
-          user: {
-            _id: requester._id,
-            username: requester.username,
-            displayName: requester.displayName,
-            avatarUrl: requester.avatarUrl,
-          },
-          createdAt: friendship._creationTime,
-        };
-      })
-    );
+    // Return just the friendship info with requester ID - frontend will use Clerk hooks
+    const requests = pending.map((friendship) => ({
+      friendshipId: friendship._id,
+      requesterId: friendship.requesterId,
+      createdAt: friendship._creationTime,
+    }));
 
-    return requests.filter(Boolean);
+    return requests;
   },
 });
 
-export const searchUsers = query({
-  args: { query: v.string() },
+
+
+export const sendRequestByClerkId = mutation({
+  args: { clerkUserId: v.string() },
   handler: async (ctx, args) => {
     const user = await requireCurrentUser(ctx);
-    const query = args.query.toLowerCase();
 
-    if (query.length < 2) {
-      return [];
-    }
-
-    // Search by username (prefix match)
-    const byUsername = await ctx.db
-      .query("users")
-      .withIndex("by_username")
-      .filter((q) =>
-        q.and(
-          q.neq(q.field("_id"), user._id),
-          q.neq(q.field("username"), undefined)
-        )
-      )
-      .collect();
-
-    const matches = byUsername.filter(
-      (u) => u.username && u.username.toLowerCase().startsWith(query)
-    );
-
-    // Check friendship status for each match
-    const results = await Promise.all(
-      matches.slice(0, 20).map(async (match) => {
-        const isFriend = await areFriends(ctx, user._id, match._id);
-
-        // Check for pending request
-        const pendingOutgoing = await ctx.db
-          .query("friendships")
-          .withIndex("by_pair", (q) =>
-            q.eq("requesterId", user._id).eq("addresseeId", match._id)
-          )
-          .unique();
-
-        const pendingIncoming = await ctx.db
-          .query("friendships")
-          .withIndex("by_pair", (q) =>
-            q.eq("requesterId", match._id).eq("addresseeId", user._id)
-          )
-          .unique();
-
-        let status: "none" | "friends" | "pending_outgoing" | "pending_incoming" = "none";
-        if (isFriend) {
-          status = "friends";
-        } else if (pendingOutgoing?.status === "pending") {
-          status = "pending_outgoing";
-        } else if (pendingIncoming?.status === "pending") {
-          status = "pending_incoming";
-        }
-
-        return {
-          _id: match._id,
-          username: match.username,
-          displayName: match.displayName,
-          avatarUrl: match.avatarUrl,
-          status,
-        };
-      })
-    );
-
-    return results;
-  },
-});
-
-export const sendRequestByUsername = mutation({
-  args: { username: v.string() },
-  handler: async (ctx, args) => {
-    const user = await requireCurrentUser(ctx);
-    const username = args.username.toLowerCase();
-
-    const addressee = await ctx.db
-      .query("users")
-      .withIndex("by_username", (q) => q.eq("username", username))
-      .unique();
-
-    if (!addressee) {
-      throw new Error("User not found");
-    }
-
-    if (addressee._id === user._id) {
+    if (args.clerkUserId === user.userId) {
       throw new Error("Cannot send friend request to yourself");
     }
 
-    // Reuse sendRequest logic
     // Check if friendship already exists in either direction
     const existing1 = await ctx.db
       .query("friendships")
       .withIndex("by_pair", (q) =>
-        q.eq("requesterId", user._id).eq("addresseeId", addressee._id)
+        q.eq("requesterId", user.userId).eq("addresseeId", args.clerkUserId)
       )
       .unique();
 
@@ -366,8 +257,8 @@ export const sendRequestByUsername = mutation({
       }
       await ctx.db.patch(existing1._id, { status: "pending" });
       await ctx.db.insert("notifications", {
-        userId: addressee._id,
-        fromUserId: user._id,
+        userId: args.clerkUserId,
+        fromUserId: user.userId,
         type: "friend_request",
         read: false,
       });
@@ -377,7 +268,7 @@ export const sendRequestByUsername = mutation({
     const existing2 = await ctx.db
       .query("friendships")
       .withIndex("by_pair", (q) =>
-        q.eq("requesterId", addressee._id).eq("addresseeId", user._id)
+        q.eq("requesterId", args.clerkUserId).eq("addresseeId", user.userId)
       )
       .unique();
 
@@ -385,8 +276,8 @@ export const sendRequestByUsername = mutation({
       if (existing2.status === "pending") {
         await ctx.db.patch(existing2._id, { status: "accepted" });
         await ctx.db.insert("notifications", {
-          userId: addressee._id,
-          fromUserId: user._id,
+          userId: args.clerkUserId,
+          fromUserId: user.userId,
           type: "friend_accepted",
           read: false,
         });
@@ -398,14 +289,14 @@ export const sendRequestByUsername = mutation({
     }
 
     const friendshipId = await ctx.db.insert("friendships", {
-      requesterId: user._id,
-      addresseeId: addressee._id,
+      requesterId: user.userId,
+      addresseeId: args.clerkUserId,
       status: "pending",
     });
 
     await ctx.db.insert("notifications", {
-      userId: addressee._id,
-      fromUserId: user._id,
+      userId: args.clerkUserId,
+      fromUserId: user.userId,
       type: "friend_request",
       read: false,
     });

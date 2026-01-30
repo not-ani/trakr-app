@@ -7,7 +7,6 @@ import {
   calculateStreak,
   getDayOfWeek,
 } from "./lib/helpers";
-import { Id } from "./_generated/dataModel";
 
 export const getFriendActivity = query({
   args: { limit: v.optional(v.number()) },
@@ -18,14 +17,14 @@ export const getFriendActivity = query({
     // Get all friends
     const asRequester = await ctx.db
       .query("friendships")
-      .withIndex("by_requester", (q) => q.eq("requesterId", user._id))
+      .withIndex("by_requester", (q) => q.eq("requesterId", user.userId))
       .filter((q) => q.eq(q.field("status"), "accepted"))
       .collect();
 
     const asAddressee = await ctx.db
       .query("friendships")
       .withIndex("by_addressee_status", (q) =>
-        q.eq("addresseeId", user._id).eq("status", "accepted")
+        q.eq("addresseeId", user.userId).eq("status", "accepted")
       )
       .collect();
 
@@ -46,8 +45,7 @@ export const getFriendActivity = query({
 
     const activities: Array<{
       type: "completion";
-      userId: Id<"users">;
-      user: { displayName?: string; username?: string; avatarUrl?: string };
+      userId: string;
       habitName: string;
       habitColor?: string;
       habitIcon?: string;
@@ -56,9 +54,6 @@ export const getFriendActivity = query({
     }> = [];
 
     for (const friendId of friendIds) {
-      const friend = await ctx.db.get(friendId);
-      if (!friend) continue;
-
       // Get friend's public habits
       const habits = await ctx.db
         .query("habits")
@@ -85,11 +80,6 @@ export const getFriendActivity = query({
           activities.push({
             type: "completion",
             userId: friendId,
-            user: {
-              displayName: friend.displayName,
-              username: friend.username,
-              avatarUrl: friend.avatarUrl,
-            },
             habitName: habit.name,
             habitColor: habit.color,
             habitIcon: habit.icon,
@@ -108,19 +98,14 @@ export const getFriendActivity = query({
 });
 
 export const getFriendProgress = query({
-  args: { friendId: v.id("users") },
+  args: { friendId: v.string() },
   handler: async (ctx, args) => {
     const user = await requireCurrentUser(ctx);
 
     // Verify they are friends
-    const isFriend = await areFriends(ctx, user._id, args.friendId);
+    const isFriend = await areFriends(ctx, user.userId, args.friendId);
     if (!isFriend) {
       throw new Error("Not friends");
-    }
-
-    const friend = await ctx.db.get(args.friendId);
-    if (!friend) {
-      throw new Error("User not found");
     }
 
     const today = getDateString();
@@ -165,12 +150,7 @@ export const getFriendProgress = query({
     const todaysHabits = habitsWithStatus.filter((h) => h.isScheduledToday);
 
     return {
-      friend: {
-        _id: friend._id,
-        displayName: friend.displayName,
-        username: friend.username,
-        avatarUrl: friend.avatarUrl,
-      },
+      friendId: args.friendId,
       todaysHabits,
       allPublicHabits: habitsWithStatus,
     };
@@ -185,14 +165,14 @@ export const getFriendStreaks = query({
     // Get all friends
     const asRequester = await ctx.db
       .query("friendships")
-      .withIndex("by_requester", (q) => q.eq("requesterId", user._id))
+      .withIndex("by_requester", (q) => q.eq("requesterId", user.userId))
       .filter((q) => q.eq(q.field("status"), "accepted"))
       .collect();
 
     const asAddressee = await ctx.db
       .query("friendships")
       .withIndex("by_addressee_status", (q) =>
-        q.eq("addresseeId", user._id).eq("status", "accepted")
+        q.eq("addresseeId", user.userId).eq("status", "accepted")
       )
       .collect();
 
@@ -204,9 +184,6 @@ export const getFriendStreaks = query({
     // Get streak data for each friend
     const friendStreaks = await Promise.all(
       friendIds.map(async (friendId) => {
-        const friend = await ctx.db.get(friendId);
-        if (!friend) return null;
-
         // Get friend's public habits
         const habits = await ctx.db
           .query("habits")
@@ -227,12 +204,7 @@ export const getFriendStreaks = query({
         }
 
         return {
-          friend: {
-            _id: friend._id,
-            displayName: friend.displayName,
-            username: friend.username,
-            avatarUrl: friend.avatarUrl,
-          },
+          friendId,
           maxStreak,
           totalStreak,
           habitCount: habits.length,
@@ -240,9 +212,7 @@ export const getFriendStreaks = query({
       })
     );
 
-    // Filter nulls and sort by max streak
-    return friendStreaks
-      .filter(Boolean)
-      .sort((a, b) => (b?.maxStreak ?? 0) - (a?.maxStreak ?? 0));
+    // Sort by max streak
+    return friendStreaks.sort((a, b) => b.maxStreak - a.maxStreak);
   },
 });

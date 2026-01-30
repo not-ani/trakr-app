@@ -16,20 +16,11 @@ export const friendshipStatus = v.union(
 );
 
 export default defineSchema({
-  users: defineTable({
-    clerkId: v.string(),
-    email: v.string(),
-    username: v.optional(v.string()),
-    displayName: v.optional(v.string()),
-    avatarUrl: v.optional(v.string()),
-    timezone: v.optional(v.string()),
-  })
-    .index("by_clerk_id", ["clerkId"])
-    .index("by_username", ["username"])
-    .index("by_email", ["email"]),
+  // User profiles are now stored in Clerk
+  // We only store userId (Clerk ID) as a string reference in other tables
 
   habits: defineTable({
-    userId: v.string(),
+    userId: v.string(), // Clerk user ID
     name: v.string(),
     description: v.optional(v.string()),
     icon: v.optional(v.string()),
@@ -44,7 +35,7 @@ export default defineSchema({
 
   habitLogs: defineTable({
     habitId: v.id("habits"),
-    userId: v.string(),
+    userId: v.string(), // Clerk user ID
     date: v.string(), // YYYY-MM-DD format
     completed: v.boolean(),
     completedAt: v.optional(v.number()), // timestamp
@@ -55,8 +46,8 @@ export default defineSchema({
     .index("by_habit", ["habitId"]),
 
   friendships: defineTable({
-    requesterId: v.id("users"),
-    addresseeId: v.id("users"),
+    requesterId: v.string(), // Clerk user ID
+    addresseeId: v.string(), // Clerk user ID
     status: friendshipStatus,
   })
     .index("by_requester", ["requesterId"])
@@ -65,8 +56,8 @@ export default defineSchema({
     .index("by_pair", ["requesterId", "addresseeId"]),
 
   notifications: defineTable({
-    userId: v.string(),
-    fromUserId: v.optional(v.id("users")),
+    userId: v.string(), // Clerk user ID (recipient)
+    fromUserId: v.optional(v.string()), // Clerk user ID (sender)
     type: notificationType,
     habitId: v.optional(v.id("habits")),
     message: v.optional(v.string()),
