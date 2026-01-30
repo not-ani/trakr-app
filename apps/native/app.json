@@ -8,10 +8,26 @@
     },
     "name": "trakr",
     "slug": "trakr",
-    "plugins": ["expo-font"],
+    "plugins": [
+      "expo-font"
+    ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "4aaf2926-7a93-471a-b95f-16ca2e03867d"
+      }
+    },
+    "owner": "anis-org",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/4aaf2926-7a93-471a-b95f-16ca2e03867d"
+    },
+    "android": {},
+    "ios": {}
   }
 }

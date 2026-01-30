@@ -3,3 +3,122 @@
 @import "heroui-native/styles";
 
 @source './node_modules/heroui-native/lib';
+
+/* ============================================================================
+   Theme Configuration
+   Purple-ish primary, clean minimal aesthetic, OKLCH color space
+   ============================================================================ */
+
+@layer theme {
+  :root {
+    @variant light {
+      /* Background & Foreground */
+      --color-background: oklch(0.9940 0 0);
+      --color-foreground: oklch(0 0 0);
+
+      /* Primary - Purple */
+      --color-primary: oklch(0.5393 0.2713 286.7462);
+      --color-primary-foreground: oklch(1.0000 0 0);
+
+      /* Secondary */
+      --color-secondary: oklch(0.9670 0.0010 286.3750);
+      --color-secondary-foreground: oklch(0 0 0);
+
+      /* Muted */
+      --color-muted: oklch(0.9670 0.0010 286.3750);
+      --color-muted-foreground: oklch(0.5512 0.0159 286.0874);
+
+      /* Accent */
+      --color-accent: oklch(0.9670 0.0010 286.3750);
+      --color-accent-foreground: oklch(0 0 0);
+
+      /* Success - Green */
+      --color-success: oklch(0.6471 0.1774 150.7);
+      --color-success-foreground: oklch(1.0000 0 0);
+
+      /* Warning - Amber */
+      --color-warning: oklch(0.7686 0.1647 70.08);
+      --color-warning-foreground: oklch(0 0 0);
+
+      /* Danger - Red */
+      --color-danger: oklch(0.5771 0.2448 27.325);
+      --color-danger-foreground: oklch(1.0000 0 0);
+
+      /* Borders & Inputs */
+      --color-border: oklch(0.9279 0.0030 286.3173);
+      --color-input: oklch(0.9279 0.0030 286.3173);
+      --color-ring: oklch(0.5393 0.2713 286.7462);
+
+      /* Card */
+      --color-card: oklch(1.0000 0 0);
+      --color-card-foreground: oklch(0 0 0);
+
+      /* Default shades */
+      --color-default-50: oklch(0.985 0 0);
+      --color-default-100: oklch(0.9670 0.0010 286.3750);
+      --color-default-200: oklch(0.9279 0.0030 286.3173);
+      --color-default-300: oklch(0.8686 0.0063 286.2861);
+      --color-default-400: oklch(0.7038 0.0108 286.0298);
+      --color-default-500: oklch(0.5512 0.0159 286.0874);
+      --color-default-600: oklch(0.4432 0.0108 285.8231);
+      --color-default-700: oklch(0.3711 0.0067 285.8090);
+      --color-default-800: oklch(0.2788 0.0047 286.0332);
+      --color-default-900: oklch(0.2098 0.0040 285.9386);
+    }
+
+    @variant dark {
+      /* Background & Foreground */
+      --color-background: oklch(0.2223 0.0060 271.1393);
+      --color-foreground: oklch(0.9551 0 0);
+
+      /* Primary - Purple (lighter for dark mode) */
+      --color-primary: oklch(0.6132 0.2294 291.7437);
+      --color-primary-foreground: oklch(1.0000 0 0);
+
+      /* Secondary */
+      --color-secondary: oklch(0.2792 0.0109 268.0221);
+      --color-secondary-foreground: oklch(0.9551 0 0);
+
+      /* Muted */
+      --color-muted: oklch(0.2792 0.0109 268.0221);
+      --color-muted-foreground: oklch(0.6819 0.0108 272.6152);
+
+      /* Accent */
+      --color-accent: oklch(0.2792 0.0109 268.0221);
+      --color-accent-foreground: oklch(0.9551 0 0);
+
+      /* Success - Green */
+      --color-success: oklch(0.6471 0.1774 150.7);
+      --color-success-foreground: oklch(1.0000 0 0);
+
+      /* Warning - Amber */
+      --color-warning: oklch(0.7686 0.1647 70.08);
+      --color-warning-foreground: oklch(0 0 0);
+
+      /* Danger - Red */
+      --color-danger: oklch(0.6369 0.2248 25.3313);
+      --color-danger-foreground: oklch(1.0000 0 0);
+
+      /* Borders & Inputs */
+      --color-border: oklch(0.2792 0.0109 268.0221);
+      --color-input: oklch(0.2792 0.0109 268.0221);
+      --color-ring: oklch(0.5481 0.2476 287.4076);
+
+      /* Card */
+      --color-card: oklch(0.2516 0.0071 271.6866);
+      --color-card-foreground: oklch(0.9551 0 0);
+
+      /* Default shades (inverted for dark mode) */
+      --color-default-50: oklch(0.2098 0.0040 285.9386);
+      --color-default-100: oklch(0.2788 0.0047 286.0332);
+      --color-default-200: oklch(0.3711 0.0067 285.8090);
+      --color-default-300: oklch(0.4432 0.0108 285.8231);
+      --color-default-400: oklch(0.5512 0.0159 286.0874);
+      --color-default-500: oklch(0.7038 0.0108 286.0298);
+      --color-default-600: oklch(0.8686 0.0063 286.2861);
+      --color-default-700: oklch(0.9279 0.0030 286.3173);
+      --color-default-800: oklch(0.9670 0.0010 286.3750);
+      --color-default-900: oklch(0.985 0 0);
+    }
+  }
+}
