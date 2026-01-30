@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useAction } from "convex/react";
 import { api } from "@trakr/backend/convex/_generated/api";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 
 // Note: These hooks should only be used inside <Authenticated> or <AuthGuard>
 // The parent component guarantees the user is authenticated
@@ -124,27 +124,38 @@ export function useFriendProfiles(userIds: string[]) {
   const [profiles, setProfiles] = useState<Record<string, FriendProfile>>({});
   const [isLoading, setIsLoading] = useState(false);
 
+  // Serialize userIds to avoid infinite loop from array reference changes
+  const userIdsKey = useMemo(() => [...userIds].sort().join(","), [userIds]);
+  const profilesRef = useRef(profiles);
+  profilesRef.current = profiles;
+
   useEffect(() => {
+    const currentProfiles = profilesRef.current;
+    const ids = userIdsKey ? userIdsKey.split(",").filter(Boolean) : [];
+
     const fetchProfiles = async () => {
-      if (userIds.length === 0) {
-        setProfiles({});
+      if (ids.length === 0) {
+        // Only clear if profiles isn't already empty
+        if (Object.keys(currentProfiles).length > 0) {
+          setProfiles({});
+        }
         return;
       }
 
       // Only fetch profiles we don't already have
-      const missingIds = userIds.filter((id) => !profiles[id]);
+      const missingIds = ids.filter((id) => !currentProfiles[id]);
       if (missingIds.length === 0) return;
 
       setIsLoading(true);
       try {
         const users = await getUsersAction({ userIds: missingIds });
-        const newProfiles: Record<string, FriendProfile> = { ...profiles };
-        
+        const newProfiles: Record<string, FriendProfile> = { ...currentProfiles };
+
         users.forEach((user) => {
           const displayName = user.firstName && user.lastName
             ? `${user.firstName} ${user.lastName}`
             : user.firstName || user.lastName || user.username || "Unknown";
-          
+
           newProfiles[user.id] = {
             id: user.id,
             username: user.username,
@@ -154,7 +165,7 @@ export function useFriendProfiles(userIds: string[]) {
             displayName,
           };
         });
-        
+
         setProfiles(newProfiles);
       } catch (err) {
         console.error("Error fetching friend profiles:", err);
@@ -164,7 +175,7 @@ export function useFriendProfiles(userIds: string[]) {
     };
 
     fetchProfiles();
-  }, [userIds, getUsersAction]);
+  }, [userIdsKey, getUsersAction]);
 
   return {
     profiles,
